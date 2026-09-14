@@ -15,23 +15,16 @@ function [pol,foil] = xfoil(coord,alpha,Re,Mach,iterCap,extraCommands)
 %       Re: Reynolds number (use Re=0 for inviscid mode)
 %     Mach: Mach number
 %  iterCap: max Newton iterations per operating point (default 100).
-%           XFoil's own built-in default is a mere 10, which is often not
-%           enough to converge from a fresh viscous start at anything
-%           but a small angle of attack -- confirmed directly: the SAME
-%           NACA2412/Re=1.53e6/Mach=0.13 case that fails to converge at
-%           alpha=4,8,12 with the default cap converges cleanly at every
-%           one of those with iterCap=150. This is issued as its own
-%           'iter ##' command in the correct place (inside the OPER
-%           submenu, after VISC) -- do NOT try to set this via
-%           extraCommands instead: XFoil takes one command per line, so
-%           'oper iter 150' as a single extra-command string either gets
-%           silently ignored (OPER takes no arguments, so 'iter'/'150'
-%           are discarded tokens on its line) or, split onto separate
-%           lines by the space-splitting convention below, has '150'
-%           land as a bare number at the OPER prompt -- which XFoil
-%           reads as a shortcut for 'set angle of attack', not as the
-%           answer to an iteration-count prompt. Both failure modes were
-%           hit and confirmed while building this.
+%           XFoil's own built-in default is a mere 10, often not enough
+%           to converge from a fresh viscous start at anything but a
+%           small angle of attack. This is issued as its own 'iter ##'
+%           command in the correct place (inside the OPER submenu, after
+%           VISC) -- do NOT try to set this via extraCommands instead:
+%           XFoil takes one command per line, so 'oper iter 150' as a
+%           single extra-command string either gets silently ignored
+%           (OPER itself takes no arguments) or has '150' land as a bare
+%           number at the OPER prompt, which XFoil reads as a shortcut
+%           for 'set angle of attack', not an iteration count.
 % extraCommands: any number of trailing extra XFoil command strings, run
 %           BEFORE entering the OPER submenu (i.e. for geometry-stage
 %           commands, not OPER-submenu settings like iter/Ncrit -- see
@@ -48,8 +41,7 @@ function [pol,foil] = xfoil(coord,alpha,Re,Mach,iterCap,extraCommands)
 %
 % A flap deflection can be added using the following extra commands,
 % 'gdes','flap {xhinge} {yhinge} {flap_defelction}','exec'
-% (NOT independently re-verified against a live XFoil run when this was
-% written -- sanity-check it before relying on it)
+% (sanity-check this against a live XFoil run before relying on it)
 %
 % Outputs:
 %  pol: structure with the polar coefficients (alpha,CL,CD,CDp,CM,
@@ -155,8 +147,7 @@ else
 end
 
 % Clean up every temp file this run can produce, even if something below
-% errors partway through -- the original script left these behind on any
-% failure (a read error, a failed system() call, etc).
+% errors partway through (a read error, a failed system() call, etc).
 tempFiles = [{file_inp, file_out, file_pwrt}, file_dump, file_cpwr] ;
 if ~(ischar(coord)||isstring(coord))
     tempFiles = [tempFiles, {file_coord}] ;
@@ -206,12 +197,11 @@ fclose(fid) ;
 % Execute xfoil. Needs BOTH: (a) cd'ing into wd first, so xfoil.exe's
 % own process cwd resolves the bare load/dump/cpwr/pwrt filenames it was
 % just told to use above, and (b) invoking it by its fully-qualified
-% path -- a bare "xfoil.exe" does NOT reliably resolve via cmd.exe's
-% current-directory search when invoked through system() (tested and
-% confirmed unreliable even immediately after cd /d). Every path here is
-% quoted since wd may contain spaces; xfoil.exe itself never sees these
-% quoted/qualified paths, only cmd.exe does -- see the bare-vs-qualified
-% filename split above.
+% path -- a bare "xfoil.exe" does not reliably resolve via cmd.exe's
+% current-directory search when invoked through system(). Every path here
+% is quoted since wd may contain spaces; xfoil.exe itself never sees
+% these quoted/qualified paths, only cmd.exe does -- see the
+% bare-vs-qualified filename split above.
 exePath = fullfile(wd,'xfoil.exe') ;
 cmd = sprintf('cd /d "%s" && "%s" < "%s" > "%s"',wd,exePath,file_inp,file_out) ;
 [status,result] = system(cmd) ;

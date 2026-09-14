@@ -23,13 +23,17 @@ some file layout has shifted again).
   scripts (in `+open/+build/` and `+open/+examples/`).
 - **`+api/`** is a thin, student-facing layer: `simulate_race`,
   `runSeason2025`, `genCarAeroData`, `naca4Aero`, `genAeroPolar`,
-  `RaceNames` (an enum of the 24 track names), `official_evaluation`
-  (WIP, see below). Several of these files (`naca4Aero.m`,
-  `genCarAeroData.m`, `genAeroPolar.m`) are **byte-identical duplicates**
-  of an `+open/` counterpart — when you edit one, `cp` it over the other
-  and `diff` to confirm. This duplication is deliberate (keeps `+api`
-  simple/flat for students) but means it's easy to fix one copy and
-  forget the other; always check both.
+  `RaceNames` (an enum of the 24 track names), `plotNACA`, `plotGGV`,
+  `compareGGV`, `official_evaluation` (turns a team's raw wing/gear-ratio parameters
+  into a season result in one call, by combining `genCarAeroData` +
+  `runSeason2025`). `naca4Aero.m`, `genCarAeroData.m` and `genAeroPolar.m`
+  are one-line pass-through wrappers around their `+open/` counterpart
+  (`[varargout{1:nargout}] = open.<name>(varargin{:})`) rather than
+  separately maintained copies — they used to be hand-kept-in-sync
+  duplicates, which drifted at least once (a missing sign flip in the
+  `+api` copy of `genCarAeroData` silently inverted the downforce
+  convention for students). If you need to change one of these three,
+  edit the `+open/` version; the `+api` wrapper needs no change.
 - **`+util/`** has one file so far: `spider_plot.m` (a radar-chart
   plotting utility, used to compare two teams' lap times across all 24
   tracks at once — see `estimate_seasonPerformance.m`).
@@ -214,32 +218,42 @@ camber directly, so there's no way to "just flip the geometry"). It
 mirrors the angle of attack for the actual XFoil solve and negates the
 reported `Cl` — physically correct (not just a cosmetic sign flip)
 because inverting a wing mirrors its whole flow field, including which
-stall boundary applies for a cambered section. **Convention: negative
-input `AoA` to `naca4Aero(...,'InvertWing',true)` means "downforce
-incidence"** (matches the XFoil-angle-mirroring math directly) —
-verified: `naca4Aero('2412',-10,'InvertWing',true)` gives exactly
-`-naca4Aero('2412',10)`'s `Cl`, same `Cd`.
+stall boundary applies for a cambered section. **`InvertWing` defaults
+to `true`** (this whole project is about downforce wings, so that's the
+convention everything is built around) — set it to `false` only if you
+deliberately want a normal, lift-generating wing. **Convention: negative
+input `AoA` means "downforce incidence"** (matches the XFoil-angle-
+mirroring math directly) — verified:
+`naca4Aero('2412',-10)` (InvertWing defaulting true) gives exactly
+`-naca4Aero('2412',10,'InvertWing',false)`'s `Cl`, same `Cd`.
 
-**`open.genCarAeroData`** wraps two `naca4Aero(...,'InvertWing',true)`
-calls (front + rear wing) plus a fixed body/floor baseline
-(`CL_body`/`CD_body`, defaults -3/1) into a whole-car `[CL,CD,aeroBalance]`,
-already reference-area-converted (each wing's force scaled by its own
-planform area vs the car's frontal area, not just averaged) and already
-correctly signed to drop straight into `Vehicle.withAero`,
-`api.simulate_race`, or `api.runSeason2025` with **zero further
-conversion**. Its own `frontAoA`/`rearAoA` inputs are **POSITIVE for
-downforce** (the opposite convention from `naca4Aero`'s raw `InvertWing`
-input!) — `genCarAeroData` negates internally
-(`naca4Aero(section,-frontAoA,'InvertWing',true)`) specifically so its
-own interface is the intuitive "bigger number = more downforce" for a
-caller who isn't thinking about the AoA-mirroring mechanics underneath.
-**This double-negative (naca4Aero wants negative-in, genCarAeroData
-wants positive-in) is a real, easy place to get confused — it was
-implemented wrong on the first pass in this exact session** (forgot the
-negation, caught it by testing `aeroBalance` shifting the wrong
-direction for an asymmetric wing choice) — if you touch this function,
-re-verify with the same test: make one wing bigger, confirm
-`aeroBalance` moves *toward* that wing, not away.
+**`open.genCarAeroData`** wraps two `naca4Aero(...)` calls (front + rear
+wing, relying on `InvertWing`'s default) plus a fixed body/floor
+baseline (`CL_body`/`CD_body`, defaults -3/1) into a whole-car
+`[CL,CD,aeroBalance]`, already reference-area-converted (each wing's
+force scaled by its own planform area vs the car's frontal area, not
+just averaged) and already correctly signed to drop straight into
+`Vehicle.withAero`, `api.simulate_race`, or `api.runSeason2025` with
+**zero further conversion**. Its `frontAoA`/`rearAoA` inputs are passed
+straight through to `naca4Aero` with **no sign flip of their own** — so
+they use exactly `naca4Aero`'s convention: **negative for downforce**.
+(This function used to apply its own extra sign flip on top of
+`naca4Aero`'s, to present a "positive = downforce" interface — that
+double-negative was a persistent source of bugs, most recently a missing
+negation in the `+api` copy that meant a positive AoA through the
+student-facing function was quietly producing lift, not downforce. It
+was removed once `InvertWing` started defaulting to `true`, so
+`genCarAeroData` now has exactly one AoA convention, matching
+`naca4Aero`'s own.) If you touch this function, verify with: make one
+wing bigger (more negative AoA), confirm `aeroBalance` moves *toward*
+that wing, not away.
+
+**`api.plotNACA`** also defaults `InvertWing` to `true` and takes an
+`AoA` argument, so `api.plotNACA(section,AoA)` draws exactly the
+orientation `api.naca4Aero(section,AoA)` actually analyses (mirrored
+geometry, rotated by `AoA` using the standard nose-up-positive
+convention) — useful for sanity-checking a chosen section/AoA visually
+before running XFoil on it.
 
 ## Fuel modelling (`open.simulateFuelCorrectedRace`)
 
@@ -266,20 +280,6 @@ race fuel loads by ~25-30%.
 
 ## Known loose ends (verify before relying on these)
 
-- **`example_estimateCarAeroData.m`** calls `api.genCarAeroData('0015',-10,...)`
-  — **negative** AoA. Per the convention above, `genCarAeroData` expects
-  *positive* AoA for downforce, so this example may currently be
-  requesting **lift, not downforce**, silently. Worth checking whether
-  this is a stale example (predates the sign-convention fixes) or a
-  sign of the convention still being unsettled in practice — verify by
-  checking whether `cl1`/`cl2` come out negative when actually run.
-- **`+api/official_evaluation.m`** looks unfinished: its docstring is a
-  verbatim copy of `runSeason2025`'s (never updated for its own
-  signature), and the top-level `official_evaluation.m` script that
-  calls it only passes 1 of the function's 6 required arguments. Likely
-  intended as a single combined "wing choice → season result" entry
-  point (folding `genCarAeroData` + `runSeason2025` into one call) but
-  not wired up yet.
 - `Track.FromLoggedFile` (logged-telemetry track building) has never
   been exercised end-to-end — no sample CSV exists in the repo.
 - If you add a new `Vehicle`/`Track`/etc. property that's derived from
@@ -300,6 +300,11 @@ race fuel loads by ~25-30%.
 - **Turn a wing choice into Cl/Cd:** `api.genCarAeroData(frontSection,frontAoA,rearSection,rearAoA)`
 - **Compare two teams' seasons:** `open.SeasonResult.comparePositions([res1,res2])`
   or the `util.spider_plot` radar-chart approach in `estimate_seasonPerformance.m`
+- **Visualise a car's GGV envelope (grip limit):** `api.plotGGV(Cl,Cd,AeroBalance,GearRatioScale)`,
+  or `api.compareGGV(...)` (see its own docstring) to overlay two setups
+  on one plot. Both are thin wrappers around `open.plotGGV(veh,options)`,
+  which takes an `open.Vehicle` directly and accepts an existing `ax` to
+  plot onto — that's how `compareGGV` overlays two surfaces.
 - **Check XFoil convergence directly:** `api.naca4Aero(section,AoA)` (add
   `'iterCap',1000` if it's failing to converge — but note some
   AoA/Reynolds combinations, especially at negative AoA on a cambered

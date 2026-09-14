@@ -37,15 +37,15 @@ fclose('all') ;
 
 %% Loading vehicle
 
-vehiclefile = '../OpenVEHICLEs/Formula_1_car.mat' ;
+vehiclefile = 'data/cars/Formula_1_car.mat' ;
 veh = open.Vehicle.loadFromMat(vehiclefile) ;
 
 %% Running the simulation
 sim = open.DragSimulation.Run(veh) ;
 
 %% Saving results
-[folder_status,folder_msg] = mkdir('../OpenDRAG Sims') ;
-simname = "../OpenDRAG Sims/OpenDRAG_"+veh.name ;
+[folder_status,folder_msg] = mkdir('OpenDRAG Sims') ;
+simname = "OpenDRAG Sims/OpenDRAG_"+veh.name ;
 sim.saveToMat(simname+".mat")
 
 %% Plot

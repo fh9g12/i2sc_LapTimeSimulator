@@ -62,7 +62,7 @@ function [v_next, ax, ay, tps, bps, overshoot] = vehicleModelComb(veh, tr, v, v_
         ax_tyre = ax_tyre_max*ellipse_multi ;
         enginePower = veh.enginePowerLimitInterp(v) ; % NaN outside veh.vehicle_speed's range
         if isnan(enginePower)
-            enginePower = 0 ; % matches the old interp1(...,'linear',0) extrapolation exactly
+            enginePower = 0 ; % outside the engine's speed range: no power available
         end
         ax_power_limit = 1/M*enginePower ;
         scale = min([ax_tyre,ax_needed]/ax_power_limit) ;

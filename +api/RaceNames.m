@@ -1,6 +1,7 @@
 classdef RaceNames
-    %RACENAMES Summary of this class goes here
-    %   Detailed explanation goes here
+    % RaceNames - enum of the 24 tracks on the 2025 season calendar, one
+    % member per data/tracks/*.mat file. Pass a member to
+    % api.simulate_race to run a single race, e.g. api.RaceNames.Monza.
 
     enumeration
         Austin

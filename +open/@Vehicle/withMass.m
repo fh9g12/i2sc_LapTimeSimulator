@@ -3,22 +3,16 @@ function obj = withMass(obj, M)
     % overridden, and every quantity derived from it (the force model
     % and the GGV map) recomputed consistently.
     %
-    % Note this is a narrower case than withAero's: LapSimulation's solver
-    % (vehicleModelLat/vehicleModelComb) reads veh.M directly at every
-    % point rather than through a cached property, so a bare obj.M=M
-    % assignment WOULD already give correct lap times -- unlike da, whose
-    % factor_aero/factor_drive genuinely are cached from construction and
-    % silently go stale (see withAero.m). The recompute here matters for
-    % everything else that reads the cached fields directly: fz_mass/
+    % LapSimulation's solver reads veh.M directly, so a bare obj.M=M
+    % assignment would already give correct lap times -- but fz_mass/
     % fz_total/fz_tyre/fx_roll/fx_tyre (private/computeForceModel.m) and
     % the whole GGV envelope (private/computeGGVMap.m, every ax/ay limit
-    % divided through by mass) are baked in from M once at construction
-    % time, so without this, Vehicle.plotModel's traction/GGV plots and
-    % any GGV-vs-achieved-data comparison (e.g. LapSimulation.plotModel)
-    % would silently show a stale mass even though the lap-time number
-    % itself was already correct.
+    % divided through by mass) are cached from M at construction time, so
+    % skipping this recompute would leave Vehicle.plotModel's
+    % traction/GGV plots (and any GGV-vs-achieved comparison, e.g.
+    % LapSimulation.plotModel) showing a stale mass.
     %
-    % Mass does NOT feed into the driveline model (engine curves, shift
+    % Mass does not feed into the driveline model (engine curves, shift
     % points -- see rebuildDriveline.m), so unlike withGearRatioScale/
     % withOptimalGearing this only needs the force model + GGV map
     % recomputed, exactly like withAero.

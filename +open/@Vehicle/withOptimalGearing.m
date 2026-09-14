@@ -23,11 +23,9 @@ function obj = withOptimalGearing(obj)
     % exactly one positive real root (alpha, beta < 0 and gamma > 0 for
     % any physically sensible car, so the positive branch is unique).
     P_redline = obj.en_torque_curve(end)*(obj.en_speed_curve(end)*2*pi/60)*obj.n_primary*obj.n_gearbox*obj.n_final ;
-    % Cd and Cr are now positive drag magnitudes (see Vehicle.m), unlike
-    % when this cubic was first derived (both negative back then) -- the
-    % leading '-' on both alpha and beta re-derives the same equation
-    % with the new sign convention plugged in (Cl's sign is unchanged, so
-    % it needs no adjustment here).
+    % Cd and Cr are positive drag magnitudes (see Vehicle.m's sign
+    % convention notes), so alpha and beta carry a leading '-' to turn
+    % them back into "opposes motion" terms; Cl's sign is unchanged.
     alpha = -(1/2*obj.rho*obj.A*(obj.factor_Cd*obj.Cd - obj.Cr*obj.factor_Cl*obj.Cl)) ;
     beta = -(obj.Cr*Wz) ;
     gamma = obj.factor_power*P_redline ;

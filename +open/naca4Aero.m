@@ -15,12 +15,10 @@ function [Cl,Cd] = naca4Aero(section,AoA,options)
 % itself) rather than erroring the whole call -- check for NaN if you
 % asked for several AoAs at once, e.g. a sweep approaching stall.
 %
-% DEFAULT REYNOLDS NUMBER: chosen to represent a small wing element
-% (options.chord_m, default 0.5 m) at a typical car-park test speed
-% (options.speed_mph, default 100 mph), using sea-level ISA air
-% properties -- see the constants below. Override options.Re directly to
-% bypass this derivation, e.g. for a different chord/speed combination
-% than the two options below cover.
+% DEFAULT REYNOLDS NUMBER: derived from a reference chord (options.chord_m,
+% default 0.5 m) and speed (options.speed_mph, default 100 mph) using
+% sea-level ISA air properties. Override options.Re directly to bypass
+% this derivation.
 %
 % options (all optional):
 %   .chord_m     reference chord [m] used to derive the default Re (default 0.5)
@@ -35,55 +33,40 @@ function [Cl,Cd] = naca4Aero(section,AoA,options)
 %                low to converge from a fresh viscous start at anything
 %                but a small AoA; passed straight through to
 %                open.xfoil's own iterCap parameter
-%   .hangIfNoConverge   TEACHING AID, default false. If true and ANY
-%                requested AoA fails to converge, this call never
-%                returns: it RE-RUNS just that one failing operating
-%                point through open.xfoil with a hugely raised iterCap
-%                (options.hangIterCap), which for a genuinely
-%                non-convergent/oscillating case (confirmed, not just
-%                slow) keeps XFoil busy computing internally for a very
-%                long time -- 1e6 iterations is ~36 minutes at the
-%                ~2.2ms/iteration measured for this exact case, i.e.
-%                effectively forever for a live demo. This deliberately
-%                does NOT try to keep the ORIGINAL xfoil.exe process
-%                alive by omitting its trailing 'quit' command -- tested
-%                directly, and a piped stdin running dry crashes this
-%                XFoil build immediately ('Fortran runtime error: End of
-%                file'), it does not wait for more input. Re-running
-%                with more iterations avoids that entirely, since XFoil
-%                is never waiting on stdin -- it's just still computing.
-%                Only triggers on a genuine failure (never for AoAs that
-%                converge normally). Press Ctrl+C to stop; normally
-%                (false) a non-convergent AoA just comes back as NaN
-%                with a warning instead, the right behaviour for real
-%                use. e.g. open.naca4Aero('2412',2,'hangIfNoConverge',true)
-%                is a case confirmed to oscillate rather than converge
-%                at the default Re.
+%   .hangIfNoConverge   TEACHING AID, default false. If true and any
+%                requested AoA fails to converge, this call re-runs just
+%                that operating point through open.xfoil with a hugely
+%                raised iterCap (options.hangIterCap) instead of
+%                returning NaN -- useful for demonstrating live, on
+%                screen, what a genuinely non-convergent XFoil solve
+%                looks like (it will run for a very long time; press
+%                Ctrl+C to stop). Normal use should leave this false.
 %   .hangIterCap  iteration cap used for the hangIfNoConverge re-run
 %                (default 1e6, see above)
 %   .InvertWing  models the section MOUNTED UPSIDE DOWN to generate
-%                downforce instead of lift, default false. A NACA 4-digit
-%                code can't express negative camber directly (there's no
-%                way to write "-2412"), so this is how a downforce wing
-%                is actually modelled here: inverting an aerofoil mirrors
-%                its whole flow field, which is equivalent to negating
-%                BOTH its camber AND its angle of attack together -- so
-%                rather than negate camber (not expressible), this negates
-%                AoA instead (i.e. actually runs XFoil at -AoA on the
-%                UNCHANGED geometry) and negates the reported Cl to match.
-%                This is more than a cosmetic sign flip on the result: it
-%                also picks the CORRECT (mirrored) stall boundary for a
-%                cambered section, which a post-hoc "just negate whatever
-%                Cl you got at +AoA" fudge would not -- a cambered
-%                aerofoil's stall behaviour is NOT symmetric between its
-%                two orientations. Cd is unaffected (drag doesn't care
-%                which way up the wing is). With InvertWing=true, AoA is
-%                the wing's effective downforce-generating incidence, so
-%                open.naca4Aero('2412',10,'InvertWing',true) means "10
-%                degrees of downforce-generating incidence" and returns a
-%                NEGATIVE Cl directly -- no separate sign fudge needed
-%                anywhere downstream (see open.genCarAeroData, which uses
-%                exactly this).
+%                downforce instead of lift, default TRUE -- this project
+%                is about downforce wings, so this is the convention
+%                everything (api.genCarAeroData, api.plotNACA, the
+%                example scripts) is built around; set it to false only
+%                if you deliberately want a normal, lift-generating wing.
+%                A NACA 4-digit code can't express negative camber
+%                directly, so this is how a downforce wing is modelled:
+%                inverting an aerofoil mirrors its whole flow field,
+%                equivalent to negating both its camber and its angle of
+%                attack together. Rather than negate camber (not
+%                expressible), this negates AoA instead (runs XFoil at
+%                -AoA on the unchanged geometry) and negates the reported
+%                Cl to match -- this also selects the correct, mirrored
+%                stall boundary for a cambered section, which a cambered
+%                aerofoil's (non-symmetric) stall behaviour requires. Cd
+%                is unaffected (drag doesn't care which way up the wing
+%                is). With InvertWing=true (the default), AoA is the
+%                wing's effective downforce-generating incidence and is
+%                NEGATIVE for downforce, so
+%                open.naca4Aero('2412',-10) means "10 degrees of
+%                downforce-generating incidence" and returns a negative
+%                Cl directly (see open.genCarAeroData, which uses exactly
+%                this).
     arguments
         section
         AoA (1,:) double
@@ -94,7 +77,7 @@ function [Cl,Cd] = naca4Aero(section,AoA,options)
         options.iterCap (1,1) double {mustBePositive,mustBeInteger} = 150
         options.hangIfNoConverge (1,1) logical = false
         options.hangIterCap (1,1) double {mustBePositive,mustBeInteger} = 1e6
-        options.InvertWing (1,1) logical = false
+        options.InvertWing (1,1) logical = true
     end
 
     [camber,camberPos,thickness] = parseNaca4Code(section) ;
@@ -119,10 +102,8 @@ function [Cl,Cd] = naca4Aero(section,AoA,options)
 
     code = sprintf('NACA%d%d%02d',camber,camberPos,thickness) ;
 
-    % InvertWing: run XFoil at the MIRRORED angle on the unchanged
-    % (non-inverted) geometry -- see the InvertWing option doc above for
-    % why this, rather than just negating Cl at +AoA, is the physically
-    % correct way to model a downforce-generating (upside-down) wing.
+    % InvertWing: run XFoil at the mirrored angle on the unchanged
+    % (non-inverted) geometry -- see the InvertWing option doc above.
     if options.InvertWing
         xfoilAoA = -AoA ;
     else
@@ -130,10 +111,9 @@ function [Cl,Cd] = naca4Aero(section,AoA,options)
     end
     pol = open.xfoil(code,xfoilAoA,Re,Mach,options.iterCap) ;
 
-    % Match converged points back to the requested (XFoil-space) AoAs by
-    % value (xfoil.m may return fewer rows than requested if any failed
-    % to converge -- not necessarily just the trailing ones), filling the
-    % rest with NaN.
+    % Match converged points back to the requested AoAs by value (xfoil.m
+    % may return fewer rows than requested if any failed to converge),
+    % filling the rest with NaN.
     Cl = nan(size(AoA)) ;
     Cd = nan(size(AoA)) ;
     for k = 1:numel(AoA)

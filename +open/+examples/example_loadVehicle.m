@@ -37,14 +37,15 @@ close all force
 fclose('all') ;
 
 %% Vehicle file selection
-filename = 'Formula 1.xlsx' ;
+% Run this script with the project root as MATLAB's current folder.
+filename = '+open/+examples/Formula 1.xlsx' ;
 
 %% Building vehicle model
 veh = open.Vehicle.FromExcelFile(filename) ;
 
 %% HUD
 [folder_status,folder_msg] = mkdir('data/cars') ;
-vehname = "data_cars/Formula_1_car";
+vehname = "data/cars/Formula_1_car";
 disp('Vehicle generated successfully.')
 
 %% Saving vehicle

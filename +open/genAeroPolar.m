@@ -24,15 +24,22 @@ function [alpha,Cl,Cd] = genAeroPolar(section,options)
 % open.naca4Aero's own warning), consistent with the rest of this
 % toolset -- the plotted lines will simply show a gap there.
 %
+% With the default InvertWing=true (matching open.naca4Aero's own
+% default), negative alpha is a downforce-generating incidence, so the
+% left half of this polar (alpha<0) is the one relevant to picking a
+% downforce wing.
+%
 % options:
-%   .range   sweep out to +-range degrees (default 12)
-%   .step    AoA increment [deg] (default 1)
+%   .range        sweep out to +-range degrees (default 12)
+%   .step         AoA increment [deg] (default 1)
+%   .InvertWing   forwarded to open.naca4Aero, default true (see above)
 %   .chord_m, .speed_mph, .Re, .Mach, .iterCap  forwarded to
 %            open.naca4Aero unchanged -- see there for defaults/meaning
     arguments
         section
         options.range (1,1) double {mustBePositive} = 16
         options.step (1,1) double {mustBePositive} = 1
+        options.InvertWing (1,1) logical = true
         options.chord_m (1,1) double {mustBePositive} = 0.5
         options.speed_mph (1,1) double {mustBePositive} = 100
         options.Re double {mustBePositive} = []
@@ -41,7 +48,7 @@ function [alpha,Cl,Cd] = genAeroPolar(section,options)
     end
 
     naca4AeroArgs = {'chord_m',options.chord_m, 'speed_mph',options.speed_mph, ...
-        'Re',options.Re, 'Mach',options.Mach, 'iterCap',options.iterCap} ;
+        'Re',options.Re, 'Mach',options.Mach, 'iterCap',options.iterCap, 'InvertWing',options.InvertWing} ;
 
     alphaPos = 0:options.step:options.range ;
     alphaNeg = 0:-options.step:-options.range ;
@@ -63,7 +70,7 @@ function [alpha,Cl,Cd] = genAeroPolar(section,options)
     subplot(3,1,1) ;
     plot(alpha,Cl,'-o') ;
     xlabel('AoA [deg]') ; ylabel('Cl') ; grid on ;
-    title(sprintf('NACA%s',char(section))) ;
+    title(sprintf('NACA%s%s',char(section),repmat(' (inverted)',1,options.InvertWing))) ;
 
     subplot(3,1,2) ;
     plot(alpha,Cd,'-o') ;

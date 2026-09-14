@@ -1,10 +1,9 @@
 %% buildTracks2025
 %
 % Batch-builds an open.Track for every OpenF1-derived shape-data Excel
-% file in "tracks_2025/", and saves each one into
-% "OpenTRACK Tracks/2025/" under the same short, special-character-free
-% filename as its source Excel file (e.g. "tracks_2025/Monza.xlsx" ->
-% "OpenTRACK Tracks/2025/Monza.mat"), so they can be loaded with
+% file in "tracks_2025/", and saves each one into "data/tracks/" under
+% the same filename as its source Excel file (e.g. "tracks_2025/Monza.xlsx"
+% -> "data/tracks/Monza.mat"), so they can be loaded with
 % open.Track.loadFromMat just like any other track file.
 %
 % A failure on one track (e.g. a malformed sheet) is reported and does

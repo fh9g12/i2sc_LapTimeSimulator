@@ -41,8 +41,8 @@ fclose('all') ;
 
 %% Filenames
 
-trackfile = '../OpenTRACKs/2025/Monza.mat' ;
-vehiclefile = '../OpenVEHICLEs/Formula_1_car.mat' ;
+trackfile = 'data/tracks/Monza.mat' ;
+vehiclefile = 'data/cars/Formula_1_car.mat' ;
 
 %% Loading circuit & car
 

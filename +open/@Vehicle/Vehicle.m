@@ -112,24 +112,17 @@ classdef Vehicle
 
         % Cached engine power-limit lookup: a griddedInterpolant over
         % (vehicle_speed, factor_power*fx_engine), 'linear' with 'none'
-        % extrapolation (NaN outside the grid, matching the plain
-        % interp1(...) call this replaces). vehicleModelLat/
-        % vehicleModelComb call this many tens of thousands of times per
-        % lap solve; interp1 re-parses/re-validates its inputs on every
-        % single call, which profiling showed as ~40% of total solve
-        % time -- building the interpolant ONCE here instead removes
-        % that overhead, and since it depends only on vehicle_speed/
-        % factor_power/fx_engine (not aero, not mass), it survives
-        % unchanged through withAero/withMass and is reused across an
-        % entire season sweep or fuel-mass convergence against the same
-        % vehicle. Only gearing changes (withGearRatioScale/
-        % withOptimalGearing, via rebuildDriveline.m) invalidate it, and
-        % rebuildDriveline.m rebuilds it explicitly there. Not usefully
-        % JSON-serialisable (saveToJSON drops it); the constructor below
-        % rebuilds it automatically whenever it's missing but
-        % vehicle_speed is present, so a JSON round-trip regenerates it
-        % for free, and a .mat round-trip (which CAN serialise it
-        % natively) just reuses the loaded one.
+        % extrapolation (NaN outside the grid). Built once instead of
+        % calling interp1 on every solver step (vehicleModelLat/
+        % vehicleModelComb call this tens of thousands of times per lap
+        % solve). Depends only on vehicle_speed/factor_power/fx_engine,
+        % so it survives withAero/withMass unchanged; only gearing
+        % changes (withGearRatioScale/withOptimalGearing, via
+        % rebuildDriveline.m) invalidate it, and rebuildDriveline.m
+        % rebuilds it explicitly. Dropped by saveToJSON (not
+        % JSON-serialisable); the constructor below rebuilds it whenever
+        % it's missing but vehicle_speed is present, so a JSON round-trip
+        % regenerates it and a .mat round-trip just reuses the loaded one.
         enginePowerLimitInterp
     end
 

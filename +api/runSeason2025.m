@@ -13,12 +13,10 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
     % 2025 tracks folder, labelling the result with TeamName.
     %
     % SIGN CONVENTION: Cl is NEGATIVE for downforce, Cd is POSITIVE (a
-    % drag magnitude -- drag has no sign, it always opposes motion) --
-    % the ordinary aerodynamics convention, and exactly Vehicle.Cl/Cd's
-    % own (e.g. the baseline vehicle is Cl=-4.8, Cd=1.2), so both are
-    % passed straight through with no sign flip. This matches
-    % open.genCarAeroData's output exactly: feed its
-    % [CL,CD,aeroBalance] straight in as [Cl,Cd,AeroBalance] here.
+    % drag magnitude) -- the ordinary aerodynamics convention, and
+    % exactly Vehicle.Cl/Cd's own (e.g. the baseline vehicle is Cl=-4.8,
+    % Cd=1.2), so both are passed straight through with no sign flip.
+    % Feed open.genCarAeroData's [CL,CD,aeroBalance] straight in here.
     %
     % Gearing is deliberately NOT optimised for you: pairing it with your
     % chosen Cd is part of the exercise. Vehicle.withOptimalGearing gives
@@ -26,8 +24,8 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
     % your own choice against.
     %
     % Name-value options:
-    %   VehicleFile   (default "OpenVEHICLE Vehicles/OpenVEHICLE_Formula 1_Open Wheel.mat")
-    %   TracksFolder  (default "OpenTRACK Tracks/2025")
+    %   VehicleFile   (default "data/cars/Formula_1_car.mat")
+    %   TracksFolder  (default "data/tracks/")
     %
     % A track that fails to load or simulate is skipped with a warning
     % rather than stopping the whole run. Save the result (result.saveToMat(...))
@@ -44,7 +42,7 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
     % (open.simulateFuelCorrectedRace) but costs ~10x a single lap per
     % track -- worth running yourself on individual cases, but not
     % worth paying for across a whole season sweep for the modest
-    % effect it has on the optimum (see example_seasonFuelVariation.m).
+    % effect it has on the optimum.
     arguments
         Cl (1,1) double
         Cd (1,1) double
