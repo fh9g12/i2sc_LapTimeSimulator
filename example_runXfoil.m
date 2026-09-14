@@ -14,10 +14,6 @@ fprintf('Drag Coefficient (Cd): %.4f\n', cd);
 fprintf('----------------------------------------\n')
 fprintf('\n')
 
-% plot a specific 4-series airfoil
-api.plotNACA('2412',-5)
-
-
 %% Sweep AoAs
 
 % Define the range of angles of attack
