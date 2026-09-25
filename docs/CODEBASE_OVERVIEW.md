@@ -26,14 +26,18 @@ some file layout has shifted again).
   `RaceNames` (an enum of the 24 track names), `plotNACA`, `plotGGV`,
   `compareGGV`, `official_evaluation` (turns a team's raw wing/gear-ratio parameters
   into a season result in one call, by combining `genCarAeroData` +
-  `runSeason2025`). `naca4Aero.m`, `genCarAeroData.m` and `genAeroPolar.m`
-  are one-line pass-through wrappers around their `+open/` counterpart
-  (`[varargout{1:nargout}] = open.<name>(varargin{:})`) rather than
-  separately maintained copies — they used to be hand-kept-in-sync
-  duplicates, which drifted at least once (a missing sign flip in the
-  `+api` copy of `genCarAeroData` silently inverted the downforce
-  convention for students). If you need to change one of these three,
-  edit the `+open/` version; the `+api` wrapper needs no change.
+  `runSeason2025`). `naca4Aero.m`, `genCarAeroData.m` and
+  `genAeroPolar.m` used to be one-line pass-through wrappers
+  (`[varargout{1:nargout}] = open.<name>(varargin{:})`) around
+  `+open/` counterparts, but they were hand-kept-in-sync duplicates
+  that drifted at least once (a missing sign flip in the `+api` copy
+  of `genCarAeroData` silently inverted the downforce convention for
+  students) — to remove that failure mode entirely, all three now have
+  their actual implementations living directly in `+api/naca4Aero.m`,
+  `+api/genCarAeroData.m` and `+api/genAeroPolar.m`; there is no
+  `+open/naca4Aero.m`, `+open/genCarAeroData.m` or
+  `+open/genAeroPolar.m` any more, and nothing else in the repo calls
+  them under the `open.` name.
 - **`+util/`** has one file so far: `spider_plot.m` (a radar-chart
   plotting utility, used to compare two teams' lap times across all 24
   tracks at once — see `estimate_seasonPerformance.m`).
@@ -212,7 +216,7 @@ sign was fixed. If you see a stale comment or an old commit implying
 otherwise, the *current* code (both functions) does a plain pass-through
 — verify against the actual `veh.withAero(...)` line, not a comment.
 
-**`open.naca4Aero`'s `InvertWing` option** is the mechanism for
+**`api.naca4Aero`'s `InvertWing` option** is the mechanism for
 modelling a downforce wing (a NACA 4-digit code can't express negative
 camber directly, so there's no way to "just flip the geometry"). It
 mirrors the angle of attack for the actual XFoil solve and negates the
@@ -227,7 +231,7 @@ mirroring math directly) — verified:
 `naca4Aero('2412',-10)` (InvertWing defaulting true) gives exactly
 `-naca4Aero('2412',10,'InvertWing',false)`'s `Cl`, same `Cd`.
 
-**`open.genCarAeroData`** wraps two `naca4Aero(...)` calls (front + rear
+**`api.genCarAeroData`** wraps two `naca4Aero(...)` calls (front + rear
 wing, relying on `InvertWing`'s default) plus a fixed body/floor
 baseline (`CL_body`/`CD_body`, defaults -3/1) into a whole-car
 `[CL,CD,aeroBalance]`, already reference-area-converted (each wing's

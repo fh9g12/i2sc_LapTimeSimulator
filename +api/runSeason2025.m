@@ -16,7 +16,7 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
     % drag magnitude) -- the ordinary aerodynamics convention, and
     % exactly Vehicle.Cl/Cd's own (e.g. the baseline vehicle is Cl=-4.8,
     % Cd=1.2), so both are passed straight through with no sign flip.
-    % Feed open.genCarAeroData's [CL,CD,aeroBalance] straight in here.
+    % Feed api.genCarAeroData's [CL,CD,aeroBalance] straight in here.
     %
     % Gearing is deliberately NOT optimised for you: pairing it with your
     % chosen Cd is part of the exercise. Vehicle.withOptimalGearing gives
@@ -53,11 +53,16 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
         options.TracksFolder (1,1) string = "data/tracks/"
     end
 
+    % ensure folder/file paths are relative to root of this package
+    absPath = fullfile(fileparts(mfilename('fullpath')),'..');
+    options.TracksFolder = fullfile(absPath, options.TracksFolder);
+    options.VehicleFile = fullfile(absPath, options.VehicleFile);
+
     veh = open.Vehicle.loadFromMat(options.VehicleFile) ;
     veh = veh.withAero('Cl',Cl,'Cd',Cd,'da',AeroBalance) ;
     veh = veh.withGearRatioScale(GearRatioScale) ;
 
-    files = dir(fullfile(options.TracksFolder,'*.mat')) ;
+    files = dir(fullfile(options.TracksFolder,'*.mat'));
 
     track = strings(0,1) ;
     file = strings(0,1) ;

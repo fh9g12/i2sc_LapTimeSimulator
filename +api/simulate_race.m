@@ -4,7 +4,7 @@ function result = simulate_race(RaceName, Cl, Cd, AeroBalance, GearRatioScale, T
     % the ordinary aerodynamics convention, and exactly Vehicle.Cl/Cd's
     % own (e.g. the baseline vehicle is Cl=-4.8, Cd=1.2), so both are
     % passed straight through with no sign flip. Matches
-    % open.genCarAeroData's output exactly: feed its
+    % api.genCarAeroData's output exactly: feed its
     % [CL,CD,aeroBalance] straight in here as [Cl,Cd,AeroBalance].
     arguments
         RaceName (1,1) api.RaceNames
@@ -17,6 +17,12 @@ function result = simulate_race(RaceName, Cl, Cd, AeroBalance, GearRatioScale, T
         options.TracksFolder (1,1) string = "data/tracks/"
     end
 
+    % ensure folder/file paths are relative to root of this package
+    absPath = fullfile(fileparts(mfilename('fullpath')),'..');
+    options.TracksFolder = fullfile(absPath, options.TracksFolder);
+    options.VehicleFile = fullfile(absPath, options.VehicleFile);
+
+    % load vehicle model and set custom paramters
     veh = open.Vehicle.loadFromMat(options.VehicleFile) ;
     veh = veh.withAero('Cl',Cl,'Cd',Cd,'da',AeroBalance) ;
     veh = veh.withGearRatioScale(GearRatioScale) ;

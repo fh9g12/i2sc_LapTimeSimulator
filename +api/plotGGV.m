@@ -19,6 +19,10 @@ function fig = plotGGV(Cl,Cd,AeroBalance,GearRatioScale,options)
         options.VehicleFile (1,1) string = "data/cars/Formula_1_car.mat"
     end
 
+    % ensure folder/file paths are relative to root of this package
+    absPath = fullfile(fileparts(mfilename('fullpath')),'..');
+    options.VehicleFile = fullfile(absPath, options.VehicleFile);
+
     veh = open.Vehicle.loadFromMat(options.VehicleFile) ;
     veh = veh.withAero('Cl',Cl,'Cd',Cd,'da',AeroBalance) ;
     veh = veh.withGearRatioScale(GearRatioScale) ;

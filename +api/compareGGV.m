@@ -25,6 +25,9 @@ function fig = compareGGV(Cl1,Cd1,AeroBalance1,GearRatioScale1,Name1,Cl2,Cd2,Aer
         Name2 (1,1) string
         options.VehicleFile (1,1) string = "data/cars/Formula_1_car.mat"
     end
+    % ensure folder/file paths are relative to root of this package
+    absPath = fullfile(fileparts(mfilename('fullpath')),'..');
+    options.VehicleFile = fullfile(absPath, options.VehicleFile);
 
     veh1 = open.Vehicle.loadFromMat(options.VehicleFile) ;
     veh1 = veh1.withAero('Cl',Cl1,'Cd',Cd1,'da',AeroBalance1) ;
