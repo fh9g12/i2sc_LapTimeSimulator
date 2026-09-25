@@ -103,11 +103,11 @@ function [info, coarse] = loadLoggedTrackData(filename, filter_dt, log_mode, lam
 
     % getting unique points
     [x,rows_to_keep,~] = unique(x) ;
-    v = smooth(v(rows_to_keep),round(freq*filter_dt)) ;
-    w = smooth(w(rows_to_keep),round(freq*filter_dt)) ;
-    ay = smooth(ay(rows_to_keep),round(freq*filter_dt)) ;
-    el = smooth(el(rows_to_keep),round(freq*filter_dt)) ;
-    bk = smooth(bk(rows_to_keep),round(freq*filter_dt)) ;
+    v = open.smooth(v(rows_to_keep),round(freq*filter_dt)) ;
+    w = open.smooth(w(rows_to_keep),round(freq*filter_dt)) ;
+    ay = open.smooth(ay(rows_to_keep),round(freq*filter_dt)) ;
+    el = open.smooth(el(rows_to_keep),round(freq*filter_dt)) ;
+    bk = open.smooth(bk(rows_to_keep),round(freq*filter_dt)) ;
     gf = gf(rows_to_keep) ;
     sc = sc(rows_to_keep) ;
     % shifting position vector for 0 value at start
@@ -119,7 +119,7 @@ function [info, coarse] = loadLoggedTrackData(filename, filter_dt, log_mode, lam
         case 'speed & latacc'
             r = lambda*ay./v.^2 ;
     end
-    r = smooth(r,round(freq*filter_dt)) ;
+    r = open.smooth(r,round(freq*filter_dt)) ;
     % mirroring if needed
     if strcmp(info.mirror,'On')
         r = -r ;

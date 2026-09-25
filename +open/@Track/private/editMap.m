@@ -18,7 +18,7 @@ function [x, r, apex, r_apex, incl, bank, factor_grip, sector, X, Y, Z] = editMa
     end
 
     % track rotation
-    xyz = rotz(rotation)*[X';Y';Z'] ;
+    xyz = open.rotz(rotation)*[X';Y';Z'] ;
     X = xyz(1,:)' ;
     Y = xyz(2,:)' ;
     Z = xyz(3,:)' ;
@@ -37,5 +37,5 @@ function [x, r, apex, r_apex, incl, bank, factor_grip, sector, X, Y, Z] = editMa
         incl = [incl;(incl(end-1)+incl(1))/2] ;
     end
     % smoothing track inclination
-    incl = smooth(incl) ;
+    incl = open.smooth(incl) ;
 end

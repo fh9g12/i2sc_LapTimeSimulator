@@ -19,7 +19,7 @@ function sim = runSolver(veh, tr)
     disp('Maximum speed calculated at all points.')
 
     %% finding apexes
-    [v_apex,apex] = findpeaks(-v_max) ; % findpeaks works for maxima, so need to flip values
+    [v_apex,apex] = open.localMaxima(-v_max) ; % localMaxima works for maxima, so need to flip values
     v_apex = -v_apex ; % flipping to get positive values
     % setting up standing start for open track configuration
     if strcmp(tr.info.config,'Open')

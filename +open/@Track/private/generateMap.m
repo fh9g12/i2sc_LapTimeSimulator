@@ -19,7 +19,7 @@ function [X, Y] = generateMap(x, dx, r, L, info)
     angle_head = angle_head-angle_head(1) ;
     for i = 2:n
         p = [X(i-1);Y(i-1);0] ;
-        xyz = rotz(angle_head(i-1))*[dx(i-1);0;0]+p ;
+        xyz = open.rotz(angle_head(i-1))*[dx(i-1);0;0]+p ;
         X(i) = xyz(1) ;
         Y(i) = xyz(2) ;
     end

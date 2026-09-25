@@ -30,16 +30,18 @@ function result = simulate_race(RaceName, Cl, Cd, AeroBalance, GearRatioScale, T
     file = [char(RaceName),'.mat'];
     filepath = fullfile(options.TracksFolder,file);
 
-    try
-        tr = open.Track.loadFromMat(filepath) ;
-        sim = open.LapSimulation.Run(veh, tr) ;
+    tr = open.Track.loadFromMat(filepath) ;
+    track = tr.info.name ;
 
-        track = tr.info.name ;
+    try
+        sim = open.LapSimulation.Run(veh, tr) ;
         laptime = sim.laptime.data ;
         sectorTimes = sim.sector_time.data ;
         sim.plotModel(veh,tr);
     catch ME
         warning(['Failed to simulate ',char(RaceName),': ',ME.message])
+        laptime = NaN;
+        sectorTimes = [NaN,NaN,NaN];
     end
 
     params.teamName = TeamName ;
