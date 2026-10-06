@@ -1,3 +1,4 @@
+util.Log.setLevel(util.LogLevel.Debug)
 %% ----- set parameters: design 1 -----
 Cl1 = -3.65;
 Cd1 = 1.06;

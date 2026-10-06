@@ -1,3 +1,4 @@
+util.Log.setLevel(util.LogLevel.Trace)
 % Example: run two parameter choices on one race, compare their lap
 % times, then compare their GGV envelopes (grip limit) side by side.
 track = api.RaceNames.Monza;

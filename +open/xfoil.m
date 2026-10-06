@@ -92,30 +92,26 @@ end
 arguments (Repeating)
     extraCommands (1,1) string
 end
+Nalpha = length(alpha) ;
 
-Nalpha = length(alpha) ; % Number of alphas swept
+% Timeout: per-alpha limit (change with setpref('xfoil','timeoutPerAlpha',3))
+% plus 1 s for start-up / file I/O.
+timeoutPerAlpha = getpref('xfoil','timeoutPerAlpha',2) ;
+timeout = 1 + timeoutPerAlpha*Nalpha ;
 
-% wd is where xfoil.exe (and every temp file this run produces) must
-% live -- it is fed to the xfoil PROCESS as bare (unqualified) filenames
-% below, since XFoil's own command parser splits on whitespace and would
-% break on a path containing spaces (as this project's OneDrive path
-% does). Only the outer cmd.exe invocation (which DOES support quoted
-% paths) uses a fully-qualified, quoted path.
-wd = fileparts(mfilename('fullpath')) ; % this file's own folder, unambiguously (avoids which() ambiguity)
-fname = mfilename ;
-foil_name = fname ;
-
+wd = fileparts(mfilename('fullpath')) ;
+% Unique temp-file stem per process + call, so parallel workers sharing wd
+% don't overwrite each other's .inp/.out/dump files. Kept short and
+% space-free since XFoil sees these as bare filenames.
+fname = sprintf('xf%d_%04d', feature('getpid'), randi(9999)) ;
+foil_name = mfilename ;
 isNacaString = (ischar(coord) || isstring(coord)) && ~isempty(regexpi(char(coord),'^NACA *[0-9]{4,5}$','once')) ;
 
-% Bare (unqualified) filenames -- these are what gets written INTO the
-% xfoil command script for its own load/dump/cpwr/pwrt commands.
-file_coord_bare = [foil_name '.foil'] ;
+file_coord_bare = [fname '.foil'] ;
 file_dump_bare = arrayfun(@(a) sprintf('%s_a%06.3f_dump.dat',fname,a), alpha, 'UniformOutput', false) ;
 file_cpwr_bare = arrayfun(@(a) sprintf('%s_a%06.3f_cpwr.dat',fname,a), alpha, 'UniformOutput', false) ;
 file_pwrt_bare = sprintf('%s_pwrt.dat',fname) ;
 
-% Fully-qualified paths -- what MATLAB itself uses to write/read/delete
-% those same files (MATLAB's own cwd need not be wd).
 file_coord = fullfile(wd,file_coord_bare) ;
 file_dump = cellfun(@(f) fullfile(wd,f), file_dump_bare, 'UniformOutput', false) ;
 file_cpwr = cellfun(@(f) fullfile(wd,f), file_cpwr_bare, 'UniformOutput', false) ;
@@ -126,15 +122,11 @@ file_out = fullfile(wd,[fname '.out']) ;
 % Save coordinates
 if ischar(coord) || isstring(coord)
     if isNacaString
-        loadTarget = '' ; % not used -- 'naca' command is issued instead, below
+        loadTarget = '' ;
     else
-        % Filename supplied, as-is (relative to wd, or an absolute path
-        % the caller supplied) -- xfoil's own load command reads it.
         loadTarget = char(coord) ;
     end
 else
-    % Coordinates supplied as an n-by-2 array -- write an XFoil ordinate
-    % file next to xfoil.exe, referenced by its bare name.
     if isfile(file_coord), delete(file_coord) ; end
     fid = fopen(file_coord,'w') ;
     if fid<=0
@@ -146,44 +138,40 @@ else
     loadTarget = file_coord_bare ;
 end
 
-% Clean up every temp file this run can produce, even if something below
-% errors partway through (a read error, a failed system() call, etc).
-tempFiles = [{file_inp, file_out, file_pwrt}, file_dump, file_cpwr] ;
-if ~(ischar(coord)||isstring(coord))
-    tempFiles = [tempFiles, {file_coord}] ;
-end
-cleanupTemp = onCleanup(@() cellfun(@deleteIfExists, tempFiles)) ; %#ok<NASGU>
+cleanupTemp = onCleanup(@() cleanupStem(wd, fname)) ;
 
 % Write xfoil command file
 fid = fopen(file_inp,'w') ;
 if fid<=0
     error([mfilename ':io'],'Unable to create xfoil.inp file') ;
 end
-
+% Headless: toggle PLOP graphics off before anything plots (no pltlib window,
+% no focus stealing). Re-enable for debugging with setpref('xfoil','graphics',true).
+if ~getpref('xfoil','graphics',false)
+    fprintf(fid,'plop\ng\n\n') ;
+end
 if isNacaString
     fprintf(fid,'naca %s\n',regexprep(char(coord),'^NACA *','')) ;
 else
     fprintf(fid,'load %s\n',loadTarget) ;
 end
-
-% Extra Xfoil commands (geometry-stage only -- see header). '/' is an
-% explicit menu-navigation separator; plain spaces are left alone, since
-% a real command's own inline arguments are space-separated too and
-% there's no way to tell those apart from a deliberate menu-hop.
+if isNacaString
+    fprintf(fid,'naca %s\n',regexprep(char(coord),'^NACA *','')) ;
+else
+    fprintf(fid,'load %s\n',loadTarget) ;
+end
 for ii = 1:numel(extraCommands)
     txt = regexprep(extraCommands{ii},'[\\/]+','\n') ;
     fprintf(fid,'%s\n\n',txt) ;
 end
-
 fprintf(fid,'\n\noper\n') ;
 fprintf(fid,'re %g\n',Re) ;
 fprintf(fid,'mach %g\n',Mach) ;
 if Re>0
-    fprintf(fid,'visc\n') ; % viscous mode
-    fprintf(fid,'iter %d\n',iterCap) ; % must come AFTER visc -- see iterCap in the header
+    fprintf(fid,'visc\n') ;
+    fprintf(fid,'iter %d\n',iterCap) ;
 end
-
-fprintf(fid,'pacc\n\n\n') ; % polar accumulation
+fprintf(fid,'pacc\n\n\n') ;
 for ii = 1:Nalpha
     fprintf(fid,'alfa %g\n',alpha(ii)) ;
     fprintf(fid,'dump %s\n',file_dump_bare{ii}) ;
@@ -194,88 +182,30 @@ fprintf(fid,'plis\n') ;
 fprintf(fid,'\nquit\n') ;
 fclose(fid) ;
 
-% Execute xfoil. Needs BOTH: (a) cd'ing into wd first, so xfoil.exe's
-% own process cwd resolves the bare load/dump/cpwr/pwrt filenames it was
-% just told to use above, and (b) invoking it by its fully-qualified
-% path -- a bare "xfoil.exe" does not reliably resolve via cmd.exe's
-% current-directory search when invoked through system(). Every path here
-% is quoted since wd may contain spaces; xfoil.exe itself never sees
-% these quoted/qualified paths, only cmd.exe does -- see the
-% bare-vs-qualified filename split above.
+% Execute xfoil with a hard time limit. Launched directly (no cmd.exe), with
+% its working directory set to wd so the bare filenames above still resolve,
+% and stdin/stdout redirected to the .inp/.out files.
 exePath = fullfile(wd,'xfoil.exe') ;
-cmd = sprintf('cd /d "%s" && "%s" < "%s" > "%s"',wd,exePath,file_inp,file_out) ;
-[status,result] = system(cmd) ;
+[timedOut, status] = runWithTimeout(exePath, wd, file_inp, file_out, timeout) ;
+if timedOut
+    if ischar(coord) || isstring(coord), desc = char(coord) ; else, desc = 'coords' ; end
+    warning([mfilename ':timeout'], ...
+        'XFoil timed out after %.1f s (%s, alpha = %s); process killed.', ...
+        timeout, desc, mat2str(alpha,4)) ;
+    pol  = emptyPolar(foil_name) ;
+    foil = struct([]) ;
+    return
+end
 if status~=0
-    disp(result) ;
-    error([mfilename ':system'],'Xfoil execution failed! %s',cmd) ;
+    if isfile(file_out), disp(fileread(file_out)) ; end
+    error([mfilename ':system'],'Xfoil execution failed (exit code %d).',status) ;
 end
 
 if nargout>1
     foil = readFoilData(file_dump,file_cpwr,alpha) ;
 end
-
 pol = readPolarFile(file_pwrt,Nalpha) ;
-
-end
-
-%% ============================================================ local functions
-
-function deleteIfExists(f)
-    if isfile(f), delete(f) ; end
-end
-
-function foil = readFoilData(file_dump,file_cpwr,alpha)
-% readFoilData - parse the per-alpha "dump" (panel/boundary-layer) and
-% "cpwr" (surface pressure) files XFoil was asked to write for every
-% requested angle of attack, into one Npanel-by-Nalpha struct.
-%
-% Assumes a constant panel count across the whole alpha sweep, which
-% holds for one XFoil session against one fixed geometry (paneling is
-% set once, independent of alpha) -- the only case this is ever called
-% with, since coord/geometry is fixed for the whole of one xfoil() call.
-    Nalpha = numel(alpha) ;
-    foil.alpha = zeros(1,Nalpha) ;
-    Npanel = [] ;
-    NCp = [] ;
-
-    for jj = 1:Nalpha
-        %    #    s        x        y     Ue/Vinf    Dstar     Theta      Cf       H
-        fid = fopen(file_dump{jj},'r') ;
-        if fid<=0
-            error([mfilename ':io'],'Unable to read xfoil output file %s',file_dump{jj}) ;
-        end
-        D = textscan(fid,'%f%f%f%f%f%f%f%f','Delimiter',' ','MultipleDelimsAsOne',true,'CollectOutput',1,'HeaderLines',1) ;
-        fclose(fid) ;
-
-        if isempty(Npanel)
-            Npanel = size(D{1},1) ;
-            [foil.s, foil.x, foil.y, foil.UeVinf, foil.Dstar, foil.Theta, foil.Cf, foil.H] = deal(zeros(Npanel,Nalpha)) ;
-        end
-
-        foil.s(:,jj)      = D{1}(:,1) ;
-        foil.x(:,jj)      = D{1}(:,2) ;
-        foil.y(:,jj)      = D{1}(:,3) ;
-        foil.UeVinf(:,jj) = D{1}(:,4) ;
-        foil.Dstar(:,jj)  = D{1}(:,5) ;
-        foil.Theta(:,jj)  = D{1}(:,6) ;
-        foil.Cf(:,jj)     = D{1}(:,7) ;
-        foil.H(:,jj)      = D{1}(:,8) ;
-        foil.alpha(1,jj)  = alpha(jj) ;
-
-        fid = fopen(file_cpwr{jj},'r') ;
-        if fid<=0
-            error([mfilename ':io'],'Unable to read xfoil output file %s',file_cpwr{jj}) ;
-        end
-        C = textscan(fid,'%10f%9f%f','Delimiter','','WhiteSpace','','HeaderLines',3,'ReturnOnError',false) ;
-        fclose(fid) ;
-
-        if isempty(NCp)
-            NCp = length(C{1}) ;
-            foil.cp = zeros(NCp,Nalpha) ;
-            foil.xcp = C{1}(:,1) ; % panel x-locations are alpha-independent
-        end
-        foil.cp(:,jj) = C{3}(:,1) ;
-    end
+clear cleanupTemp      % data extracted: delete temp files now
 end
 
 function pol = readPolarFile(file_pwrt,Nalpha)
@@ -293,37 +223,90 @@ function pol = readPolarFile(file_pwrt,Nalpha)
 %
 %   alpha    CL        CD       CDp       CM     Top_Xtr  Bot_Xtr
 %  ------ -------- --------- --------- -------- -------- --------
-    fid = fopen(file_pwrt,'r') ;
-    if fid<=0
-        error([mfilename ':io'],'Unable to read xfoil polar file %s',file_pwrt) ;
+fid = fopen(file_pwrt,'r') ;
+if fid<=0
+    error([mfilename ':io'],'Unable to read xfoil polar file %s',file_pwrt) ;
+end
+P = textscan(fid,' Calculated polar for: %[^\n]','Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',3) ;
+pol.name = strtrim(P{1}{1}) ;
+P = textscan(fid,'%*s%*s%f%*s%f%s%s%s%s%s%s',1,'Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',2,'ReturnOnError',false) ;
+pol.xtrf_top = P{1}(1) ;
+pol.xtrf_bot = P{2}(1) ;
+P = textscan(fid,'%*s%*s%f%*s%*s%f%*s%f%*s%*s%f',1,'Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',0,'ReturnOnError',false) ;
+pol.Re = P{2}(1)*10^P{3}(1) ;
+pol.Ncrit = P{4}(1) ;
+P = textscan(fid,'%f%f%f%f%f%f%f%*s%*s%*s%*s','Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',4,'ReturnOnError',false) ;
+fclose(fid) ;
+pol.alpha   = P{1}(:,1) ;
+pol.CL      = P{2}(:,1) ;
+pol.CD      = P{3}(:,1) ;
+pol.CDp     = P{4}(:,1) ;
+pol.Cm      = P{5}(:,1) ;
+pol.Top_xtr = P{6}(:,1) ;
+pol.Bot_xtr = P{7}(:,1) ;
+if isempty(pol.alpha)
+    % warning([mfilename ':noConverge'], ...
+    %     'No requested alpha converged. Try a higher iterCap, or a less extreme AoA/Re/Mach.') ;
+elseif length(pol.alpha) ~= Nalpha
+    % warning([mfilename ':noConverge'], ...
+    %     'One or more alpha values failed to converge. Last converged was alpha = %g. Try a higher iterCap.', ...
+    %     pol.alpha(end)) ;
+end
+end
+
+function [timedOut, status] = runWithTimeout(exePath, wd, inFile, outFile, timeout)
+% Start exePath with stdin/stdout redirected to files; kill it if it runs
+% longer than timeout (s). Also kills it if MATLAB is interrupted (Ctrl+C).
+cmd = javaArray('java.lang.String',1) ;
+cmd(1) = java.lang.String(exePath) ;
+pb = java.lang.ProcessBuilder(cmd) ;
+pb.directory(java.io.File(wd)) ;
+pb.redirectInput(java.io.File(inFile)) ;
+pb.redirectErrorStream(true) ;
+pb.redirectOutput(java.io.File(outFile)) ;   % must be drained somewhere or XFoil blocks
+p = pb.start() ;
+killer = onCleanup(@() killIfAlive(p)) ; %#ok<NASGU>
+
+t0 = tic ;  timedOut = false ;
+while p.isAlive()
+    if toc(t0) > timeout
+        timedOut = true ;
+        break
     end
+    pause(0.005) ;
+end
+if timedOut
+    p.destroyForcibly() ;
+    p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS) ;
+    status = -1 ;
+else
+    status = p.exitValue() ;
+end
+end
 
-    P = textscan(fid,' Calculated polar for: %[^\n]','Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',3) ;
-    pol.name = strtrim(P{1}{1}) ;
-    P = textscan(fid,'%*s%*s%f%*s%f%s%s%s%s%s%s',1,'Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',2,'ReturnOnError',false) ;
-    pol.xtrf_top = P{1}(1) ;
-    pol.xtrf_bot = P{2}(1) ;
-    P = textscan(fid,'%*s%*s%f%*s%*s%f%*s%f%*s%*s%f',1,'Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',0,'ReturnOnError',false) ;
-    pol.Re = P{2}(1)*10^P{3}(1) ;
-    pol.Ncrit = P{4}(1) ;
+function killIfAlive(p)
+if p.isAlive(), p.destroyForcibly() ; end
+end
 
-    P = textscan(fid,'%f%f%f%f%f%f%f%*s%*s%*s%*s','Delimiter',' ','MultipleDelimsAsOne',true,'HeaderLines',4,'ReturnOnError',false) ;
-    fclose(fid) ;
+function pol = emptyPolar(name)
+e = zeros(0,1) ;
+pol = struct('name',name,'xtrf_top',NaN,'xtrf_bot',NaN,'Re',NaN,'Ncrit',NaN, ...
+    'alpha',e,'CL',e,'CD',e,'CDp',e,'Cm',e,'Top_xtr',e,'Bot_xtr',e) ;
+end
 
-    pol.alpha   = P{1}(:,1) ;
-    pol.CL      = P{2}(:,1) ;
-    pol.CD      = P{3}(:,1) ;
-    pol.CDp     = P{4}(:,1) ;
-    pol.Cm      = P{5}(:,1) ;
-    pol.Top_xtr = P{6}(:,1) ;
-    pol.Bot_xtr = P{7}(:,1) ;
-
-    if isempty(pol.alpha)
-        warning([mfilename ':noConverge'], ...
-            'No requested alpha converged. Try a higher iterCap, or a less extreme AoA/Re/Mach.') ;
-    elseif length(pol.alpha) ~= Nalpha
-        warning([mfilename ':noConverge'], ...
-            'One or more alpha values failed to converge. Last converged was alpha = %g. Try a higher iterCap.', ...
-            pol.alpha(end)) ;
+function cleanupStem(wd, stem)
+% Delete all files in wd beginning with this call's unique stem.
+% Retries briefly in case Windows still holds a lock (e.g. just after a kill).
+ws = warning('off','all') ;
+restoreWarn = onCleanup(@() warning(ws)) ; %#ok<NASGU>
+files = dir(fullfile(wd, [stem '*'])) ;
+for i = 1:numel(files)
+    f = fullfile(wd, files(i).name) ;
+    for attempt = 1:10
+        try, delete(f) ; catch, end
+        if ~isfile(f), break ; end
+        pause(0.05) ;
     end
 end
+end
+

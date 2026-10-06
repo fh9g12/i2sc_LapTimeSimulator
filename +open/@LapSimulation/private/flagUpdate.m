@@ -8,6 +8,6 @@ function flag = flagUpdate(flag, j, k, prg_size)
     n = floor(p*prg_size) ; % new number of lines
     % checking if state has changed enough to update progress bar
     if n>n_old
-        progressBar(flag, prg_size) ;
+        progressBar(flag, prg_size);
     end
 end

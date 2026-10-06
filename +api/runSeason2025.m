@@ -81,6 +81,10 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
             sectorTimes{end+1,1} = sim.sector_time.data ; %#ok<AGROW>
         catch ME
             warning(['Failed to simulate ',files(i).name,': ',ME.message])
+            track(end+1,1) = tr.info.name ; %#ok<AGROW>
+            file(end+1,1) = string(files(i).name) ; %#ok<AGROW>
+            laptime(end+1,1) = nan ; %#ok<AGROW>
+            sectorTimes{end+1,1} = [nan,nan,nan] ; %#ok<AGROW>
         end
     end
 
@@ -91,6 +95,5 @@ function result = runSeason2025(Cl, Cd, AeroBalance, GearRatioScale, TeamName, o
     params.sectorTimes = sectorTimes ;
     result = open.SeasonResult(params) ;
 
-    disp('====================================================================')
-    disp(TeamName+": "+numel(track)+" of "+numel(files)+" tracks simulated successfully.")
+    util.Log.debug(TeamName+": "+track + " simulated successfully.")
 end

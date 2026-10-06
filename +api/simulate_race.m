@@ -51,6 +51,5 @@ function result = simulate_race(RaceName, Cl, Cd, AeroBalance, GearRatioScale, T
     params.sectorTimes = sectorTimes ;
     result = open.SeasonResult(params) ;
 
-    disp('====================================================================')
-    disp(TeamName+": "+track + " simulated successfully.")
+    util.Log.debug(TeamName+": "+track + " simulated successfully.")
 end

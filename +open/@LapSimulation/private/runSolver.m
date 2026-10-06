@@ -7,7 +7,9 @@ function sim = runSolver(veh, tr)
 
     %% initialisation
     timer_solver_start = tic ;
-    disp('Simulation started.')
+    util.Log.debug('Simulation started.')
+    util.Log.trace(tr.info.name,1)
+  
 
     %% maximum speed curve (assuming pure lateral condition)
     v_max = single(zeros(tr.n,1)) ;
@@ -16,7 +18,7 @@ function sim = runSolver(veh, tr)
     for i=1:tr.n
         [v_max(i),tps_v_max(i),bps_v_max(i)] = vehicleModelLat(veh,tr,i) ;
     end
-    disp('Maximum speed calculated at all points.')
+    util.Log.trace('Maximum speed calculated at all points.')
 
     %% finding apexes
     [v_apex,apex] = open.localMaxima(-v_max) ; % localMaxima works for maxima, so need to flip values
@@ -41,7 +43,7 @@ function sim = runSolver(veh, tr)
     % getting driver inputs at apexes
     tps_apex = tps_v_max(apex) ;
     bps_apex = bps_v_max(apex) ;
-    disp('Found all apexes on track.')
+    util.Log.trace('Found all apexes on track.')
 
     %% simulation
     N = uint32((length(apex))) ; % number of apexes
@@ -55,11 +57,13 @@ function sim = runSolver(veh, tr)
     tps = single(zeros(tr.n,N,2)) ;
     bps = single(zeros(tr.n,N,2)) ;
 
-    disp('Starting acceleration and deceleration.')
+    util.Log.trace('Starting acceleration and deceleration.')
     prg_size = 30 ;
-    fprintf(['Running: [',repmat(' ',1,prg_size),'] '])
-    fprintf('% 3.0f',0)
-    fprintf(' [%%]')
+    if util.Log.getLevel<util.LogLevel.Debug
+        fprintf(['Running: [',repmat(' ',1,prg_size),'] '])
+        fprintf('% 3.0f',0)
+        fprintf(' [%%]')
+    end
 
     % running simulation
     for i=1:N % apex number
@@ -133,12 +137,15 @@ function sim = runSolver(veh, tr)
             end
         end
     end
-
-    progressBar(max(flag,[],2),prg_size) ;
-    fprintf('\n')
-    disp('Velocity profile calculated.')
-    disp(['Solver time is: ',num2str(toc(timer_solver_start)),' [s]']) ;
-    disp('Post-processing initialised.')
+    
+    progressBar(max(flag,[],2),prg_size);
+    if util.Log.getLevel<util.LogLevel.Debug
+        fprintf('\n')
+    end
+    
+    util.Log.trace('Velocity profile calculated.')
+    util.Log.trace(['Solver time is: ',num2str(toc(timer_solver_start)),' [s]']) ;
+    util.Log.trace('Post-processing initialised.')
 
     %% post-processing results
 
@@ -164,7 +171,7 @@ function sim = runSolver(veh, tr)
             BPS(i) = bps(i,idx-IDX,2) ;
         end
     end
-    disp('Correct solution selected from modes.')
+    util.Log.trace('Correct solution selected from modes.')
 
     % laptime calculation
     if strcmp(tr.info.config,'Open')
@@ -177,7 +184,7 @@ function sim = runSolver(veh, tr)
         sector_time(i) = max(time(tr.sector==i))-min(time(tr.sector==i)) ;
     end
     laptime = time(end) ;
-    disp('Laptime calculated.')
+    util.Log.trace('Laptime calculated.')
 
     % calculating forces
     M = veh.M ;
@@ -188,7 +195,7 @@ function sim = runSolver(veh, tr)
     Fz_total = Fz_mass+Fz_aero ;
     Fx_aero = -1/2*veh.rho*veh.factor_Cd*veh.Cd*veh.A*V.^2 ; % Cd now positive (see Vehicle.m); leading '-' keeps this negative
     Fx_roll = -veh.Cr*abs(Fz_total) ; % Cr now positive too
-    disp('Forces calculated.')
+    util.Log.trace('Forces calculated.')
 
     % calculating yaw motion, vehicle slip angle and steering input
     yaw_rate = V.*tr.r ;
@@ -201,9 +208,9 @@ function sim = runSolver(veh, tr)
         beta(i) = sol(2) ;
     end
     steer = delta*veh.rack ;
-    disp('Yaw motion calculated.')
-    disp('Steering angles calculated.')
-    disp('Vehicle slip angles calculated.')
+    util.Log.trace('Yaw motion calculated.')
+    util.Log.trace('Steering angles calculated.')
+    util.Log.trace('Vehicle slip angles calculated.')
 
     % calculating engine metrics
     wheel_torque = TPS.*interp1(veh.vehicle_speed,veh.wheel_torque,V,'linear','extrap') ;
@@ -214,7 +221,7 @@ function sim = runSolver(veh, tr)
     gear = interp1(veh.vehicle_speed,veh.gear,V,'nearest','extrap') ;
     fuel_cons = cumsum(wheel_torque/veh.tyre_radius.*tr.dx/veh.n_primary/veh.n_gearbox/veh.n_final/veh.n_thermal/veh.fuel_LHV) ;
     fuel_cons_total = fuel_cons(end) ;
-    disp('Engine metrics calculated.')
+    util.Log.trace('Engine metrics calculated.')
 
     % calculating kpis
     percent_in_corners = sum(tr.r~=0)/tr.n*100 ;
@@ -239,8 +246,8 @@ function sim = runSolver(veh, tr)
         sector_v_max(i) = max(V(tr.sector==i)) ;
         sector_v_min(i) = min(V(tr.sector==i)) ;
     end
-    disp('KPIs calculated.')
-    disp('Post-processing finished.')
+    util.Log.trace('KPIs calculated.')
+    util.Log.trace('Post-processing finished.')
 
     %% saving results in sim structure
     sim.distance.data = tr.x ;
@@ -353,6 +360,6 @@ function sim = runSolver(veh, tr)
     sim.sector_v_max.unit = 'm/s' ;
     sim.sector_v_min.data = sector_v_min ;
     sim.sector_v_min.unit = 'm/s' ;
-    disp('Simulation results saved.')
-    disp('Simulation completed.')
+    util.Log.trace('Simulation results saved.')
+    util.Log.debug('Simulation completed.')
 end
