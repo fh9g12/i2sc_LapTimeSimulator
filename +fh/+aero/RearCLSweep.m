@@ -1,20 +1,22 @@
 %% ===== Rear-cl sweep: database + closed-form balance (no XFOIL) =====
 clear all
-load('+fh\bin\naca_db.mat')
 S  = load('+fh\bin\surrogate_LapTime_CL_CD.mat');
 F  = griddedInterpolant({S.CL, S.CD}, S.LapTime, S.method, 'none');
 Fv = griddedInterpolant({S.CL, S.CD}, double(S.valid), 'linear', 'none');
 ABt = S.AB;
 p   = api.CarAeroParams();                 % car geometry/body (same defaults as genCarAeroData)
 
-db    = db(arrayfun(@(D) numel(D.clB) >= 3, db));
-allCl = [db.clB];
-clR   = linspace(min(0, max(allCl)), min(allCl), 300);   % rear sectional cl targets
+% Section databases must be built at each wing's own chord (Reynolds number)
+dbF = loadDb(p.frontChord_m);
+dbR = loadDb(p.rearChord_m);
+allClF = [dbF.clB];
+allClR = [dbR.clB];
+clR    = linspace(min(0, max(allClR)), min(allClR), 300);   % rear sectional cl targets
 
 % --- Section choice (vectorised over all targets) ---
-[secR, aR, cdR] = bestSection(db, clR);
+[secR, aR, cdR] = bestSection(dbR, clR);
 clF             = api.frontClForBalance(clR, ABt, p);    % exact balance
-[secF, aF, cdF] = bestSection(db, clF);
+[secF, aF, cdF] = bestSection(dbF, clF);
 feas = ~isnan(cdR) & ~isnan(cdF);
 
 % --- Car level: one call on the whole arrays ---
@@ -67,7 +69,7 @@ xlabel('Rear sectional downforce $c_l$');
 
 nexttile; hold on; grid on
 plot(x, -clF, '-');
-yline(-min(allCl), 'k:', 'database limit');
+yline(-min(allClF), 'k:', 'front database limit');
 xlabel('Rear sectional downforce $c_l$'); ylabel('Front $c_l$ needed for AB');
 
 nexttile;
@@ -101,6 +103,16 @@ end
 disp(array2table(chk, 'VariableNames', {'dAoA_F','dAoA_R','CL','CD','AB','LapTime'}))
 
 %% ===== Local functions =====
+function db = loadDb(chord_m)
+% Section database built at this chord (see nacaDatabase.m), usable sections only
+    file = sprintf('+fh\\bin\\naca_db_c%04.0f.mat', chord_m*1000);
+    if ~isfile(file)
+        error('No section database for chord %.3f m (%s): run +fh\\+aero\\nacaDatabase.m.', chord_m, file);
+    end
+    S  = load(file, 'db');
+    db = S.db(arrayfun(@(D) numel(D.clB) >= 3, S.db));
+end
+
 function [sec, a, cd] = bestSection(db, clT)
 % Lowest-cd section/AoA for each target cl (vectorised over clT).
 % Returns row outputs; sec is a cell array ('' where no section reaches clT).

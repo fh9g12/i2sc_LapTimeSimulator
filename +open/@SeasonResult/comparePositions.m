@@ -1,9 +1,9 @@
-function [positionTable, lapTimeTable, fig] = comparePositions(teams)
+function [positionTable, lapTimeTable, fig, pointsTable] = comparePositions(teams)
     % SeasonResult.comparePositions - combines several teams' results
     % (one SeasonResult per car/team setup, typically from separate
     % runSeason2025 calls) into a race-by-race position comparison.
     %
-    % [positionTable, lapTimeTable, fig] = open.SeasonResult.comparePositions(teams)
+    % [positionTable, lapTimeTable, fig, pointsTable] = open.SeasonResult.comparePositions(teams)
     %
     % teams is an array of open.SeasonResult, e.g. [redBull, ferrari].
     % Tracks are matched by name across teams; a team missing a track
@@ -15,6 +15,10 @@ function [positionTable, lapTimeTable, fig] = comparePositions(teams)
     %   lapTimeTable  - the same layout, with raw lap times [s] instead.
     %   fig           - a heatmap figure of positionTable (rows = tracks,
     %                   columns = teams, cell text = position).
+    %   pointsTable   - the same layout, with championship points per race
+    %                   under the current F1 system (25-18-15-12-10-8-6-4-2-1
+    %                   for 1st-10th, none below; no sprint or fastest-lap
+    %                   points), plus a final 'Total' row.
     arguments
         teams (1,:) open.SeasonResult
     end
@@ -53,11 +57,20 @@ function [positionTable, lapTimeTable, fig] = comparePositions(teams)
     end
 
     validNames = matlab.lang.makeValidName(cellstr(teamNames)) ;
-    lapTimeTable = array2table(lapTimes, 'RowNames', cellstr(allTracks), 'VariableNames', validNames) ;
-    positionTable = array2table(positions, 'RowNames', cellstr(allTracks), 'VariableNames', validNames) ;
+    allTracks = erase(erase(string(allTracks),'FORMULA 1 '),' GRAND PRIX 2025');
+    lapTimeTable = array2table(lapTimes, 'RowNames', allTracks, 'VariableNames', validNames) ;
+    positionTable = array2table(positions, 'RowNames', allTracks, 'VariableNames', validNames) ;
+
+    % championship points: current F1 scoring, 0 outside the top 10 / no data
+    pointsScale = [25 18 15 12 10 8 6 4 2 1] ;
+    points = zeros(nTracks,nTeams) ;
+    scored = positions <= numel(pointsScale) ;       % false for NaN
+    points(scored) = pointsScale(positions(scored)) ;
+    pointsTable = array2table([points; sum(points,1)], ...
+        'RowNames', [allTracks; {'Total'}], 'VariableNames', validNames) ;
 
     fig = figure('Name','Team Positions by Race') ;
-    h = heatmap(cellstr(teamNames), cellstr(allTracks), positions) ;
+    h = heatmap(cellstr(teamNames), allTracks, positions) ;
     h.Title = 'Team Position by Race (1 = fastest)' ;
     h.XLabel = 'Team' ;
     h.YLabel = 'Track' ;

@@ -34,7 +34,7 @@ classdef SeasonResult
         obj = fromStruct(s)
         obj = loadFromMat(filepath)
         obj = fromJSON(filepath)
-        [positionTable, lapTimeTable, fig] = comparePositions(teams)
+        [positionTable, lapTimeTable, fig, pointsTable] = comparePositions(teams)
     end
 
     % toStruct, saveToMat and saveToJSON are ordinary public instance

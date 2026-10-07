@@ -8,8 +8,8 @@ clear all
 util.Log.setLevel(util.LogLevel.Info)
 
 %% ----- initial condition -----
-secF = "2506";   aF0 = -0.3;       % front section / AoA [deg]   (negative = downforce)
-secR = "8315";   aR0 = -15.172;    % rear  section / AoA [deg]
+secF = "2604";   aF0 = -0.201;       % front section / AoA [deg]   (negative = downforce)
+secR = "9313";   aR0 = -14.915;    % rear  section / AoA [deg]
 gear0 = 1.0;                       % final drive scale (Vehicle.withGearRatioScale)
 
 x0 = [aF0; aR0; gear0];            % design vector [aF; aR; gear]
@@ -51,6 +51,28 @@ nexttile; plot([hist.f], '.-'); ylabel('Season lap time (s)'); grid on
 nexttile; yyaxis left; plot(X(1:2,:)', '.-'); ylabel('AoA (deg)')
 yyaxis right; plot(X(3,:), 'k.--'); ylabel('Gear scale')
 xlabel('Iteration'); grid on; legend('Front AoA', 'Rear AoA', 'Gear', 'Location', 'best')
+
+
+%% cold run
+% Example: evaluate one team's submitted parameters over the full season.
+% AoA is NEGATIVE for downforce.
+front_aerofoil_section = secF;
+front_aoa = xo(1);
+rear_aerofoil_section = secR;
+rear_aoa = xo(2);
+gear_ratio_scaling = xo(3);
+
+% front_aerofoil_section = '2604';
+% front_aoa = -0.155;
+% rear_aerofoil_section = '9314';
+% rear_aoa = -14.845;
+% gear_ratio_scaling = 1.0077;
+% team_name = "FH";
+
+[cl,cd,ab] = api.genCarAeroData(front_aerofoil_section,front_aoa,rear_aerofoil_section,rear_aoa);
+
+% res = api.official_evaluation(front_aerofoil_section,front_aoa, ...
+%     rear_aerofoil_section,rear_aoa,gear_ratio_scaling,team_name);
 
 %% ===== Local functions =====
 function f = cost(x, secF, secR, p)

@@ -45,8 +45,8 @@ for j = 1:numel(winners)
     m = win == winners(j);
     hw(j) = plot(clGrid(m), cdEnv(m), '.', 'Color', cw(j,:), 'MarkerSize', 8);
 end
-xlabel('Downforce c_l'); ylabel('c_d'); title('Drag polar envelope');
-legend(hw, {db(winners).sec}, 'Location', 'northwest');
+xlabel('Downforce $C_l$'); ylabel('$C_d$'); title('Drag polar envelope');
+% legend(hw, {db(winners).sec}, 'Location', 'northwest');
 
 % (c) peak L/D vs camber & thickness (best camber position per cell)
 nexttile;
